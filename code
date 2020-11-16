@@ -1,0 +1,101 @@
+import pandas as pd
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
+import os
+
+path='D:/python/Deep Learning/Data sets/Dogs/train'
+# df=pd.DataFrame()
+# for i in range(12500):
+#     img_path=path+'/'+'cat.%i.jpg'%(i)
+#     print(img_path)
+#     img=cv2.imread(img_path)
+#     resize_img=np.resize(img,(100,100))
+#     reshape_img=np.reshape(resize_img,(1,-1))
+#     df=df.append(list(reshape_img))
+    
+
+file=os.listdir(path)               
+categories=[]
+for filename in file:
+    category=filename.split('.')[0]
+    if category=='cat':
+        categories.append(1)
+    else:
+        categories.append(0)
+df=pd.DataFrame({'filename':file,'label':categories})     
+        
+img_x=80
+img_y=80
+batch=128
+
+df['label'].value_counts().plot(kind='bar')
+
+
+from sklearn.model_selection import train_test_split
+import tensorflow as tf
+from tensorflow.keras.layers import Conv2D,MaxPooling2D,Dense,Flatten,BatchNormalization,Dropout
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
+x=[]
+y=[]
+path='D:/python/Deep Learning/Data sets/Dogs/train'
+convert=lambda category:int(category=='dog')
+def create_data(path):
+    for p in os.listdir(path):
+        category=p.split('.')[0]
+        category=convert(category)
+        img=cv2.imread(os.path.join(path,p),cv2.IMREAD_GRAYSCALE)
+        new_img=cv2.resize(img,(80,80))
+        x.append(new_img)
+        y.append(category)
+        
+
+create_data(path)
+
+x=np.array(x)
+x=x/255
+x=x.reshape(-1,80,80,1)
+y=np.array(y)
+
+model=Sequential()
+model.add(Conv2D(64,kernel_size=(3,3),strides=(1,1),padding='same',activation='relu',input_shape=(x.shape[1:])))
+model.add(MaxPooling2D(pool_size=(2,2)))
+# model.add(BatchNormalization())
+# model.add(Dropout(0.5))
+model.add(Conv2D(64,(3,3),(1,1),padding='same',activation='relu'))
+model.add(MaxPooling2D(pool_size=(2,2)))
+# model.add(BatchNormalization())
+# model.add(Dropout(0.5))
+model.add(Flatten())
+model.add(Dense(100,activation='sigmoid'))
+# model.add(Dropout(0.4))
+model.add(Dense(1,activation='sigmoid'))
+model.summary()
+    
+model.compile(optimizer=tf.keras.optimizers.Adam(),loss='binary_crossentropy',metrics=['accuracy'])
+model.fit(x,y,epochs=20,batch_size=32,validation_split=0.2)
+
+
+
+x_test=[]
+y_test=[]
+test_path='D:/python/Deep Learning/Data sets/Dogs/test1'
+def create_test_data(path):
+    for i in os.listdir(path):
+        y_test.append(i.split('.')[0])
+        img=cv2.imread(os.path.join(test_path,i),cv2.IMREAD_GRAYSCALE)
+        img_array=cv2.resize(img,(80,80))
+        x_test.append(img_array)
+        
+create_test_data(test_path)
+x_test=np.array(x_test).reshape(-1,80,80,1)
+x_test=x_test/255
+
+plt.plot(range(1,21),model.history.history['accuracy'])
+plt.plot(range(1,21),model.history.history['val_accuracy'])
+
+pred=model.predict(x_test)
+pred_value=[int(round(p[0])) for p in pred]
